@@ -4,51 +4,71 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import csv
 from datetime import datetime
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import statistics
 
 class ReceiverGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Seri Port Veri Alıcı")
-        self.root.geometry("600x400")
+        self.root.title("Seri Port Veri Alıcı & Analiz")
+        self.root.geometry("900x600")
 
         self.serial_port = None
         self.is_receiving = False
 
-        # PORT SEÇİMİ
-        tk.Label(root, text="Seri Port:").pack(pady=5)
-        self.port_combo = ttk.Combobox(root, values=["/dev/ttys006"])
-        self.port_combo.pack()
+        self.cpu_values = []
+        self.time_values = []
 
-        # BAUDRATE
-        tk.Label(root, text="Baudrate:").pack()
+        # PORT
+        tk.Label(root, text="Seri Port:").place(x=20, y=20)
+        self.port_combo = ttk.Combobox(root, values=["/dev/ttys006"])
+        self.port_combo.place(x=120, y=20)
+
+        # BAUD
+        tk.Label(root, text="Baudrate:").place(x=20, y=60)
         self.baud_entry = tk.Entry(root)
         self.baud_entry.insert(0, "9600")
-        self.baud_entry.pack()
+        self.baud_entry.place(x=120, y=60)
+
+        # CPU EŞİK
+        tk.Label(root, text="CPU Eşik (%):").place(x=20, y=100)
+        self.threshold_entry = tk.Entry(root)
+        self.threshold_entry.insert(0, "50")
+        self.threshold_entry.place(x=120, y=100)
 
         # BUTONLAR
-        btn_frame = tk.Frame(root)
-        btn_frame.pack(pady=10)
-
-        self.start_btn = tk.Button(btn_frame, text="Alımı Başlat", width=15, command=self.start_receiving)
-        self.start_btn.grid(row=0, column=0, padx=5)
-
-        self.stop_btn = tk.Button(btn_frame, text="Alımı Durdur", width=15, command=self.stop_receiving)
-        self.stop_btn.grid(row=0, column=1, padx=5)
+        tk.Button(root, text="Alımı Başlat", command=self.start_receiving).place(x=20, y=150)
+        tk.Button(root, text="Alımı Durdur", command=self.stop_receiving).place(x=140, y=150)
 
         # TABLO
-        self.tree = ttk.Treeview(root, columns=("time", "cpu", "ram"), show="headings")
-        self.tree.heading("time", text="Saat")
+        self.tree = ttk.Treeview(root, columns=("time", "cpu", "ram"), show="headings", height=8)
+        self.tree.heading("time", text="Zaman")
         self.tree.heading("cpu", text="CPU (%)")
         self.tree.heading("ram", text="RAM (%)")
-        self.tree.pack(expand=True, fill="both", pady=10)
+        self.tree.place(x=320, y=20)
 
         # DURUM
         self.status_label = tk.Label(root, text="Durum: Bekleniyor", fg="blue")
-        self.status_label.pack()
+        self.status_label.place(x=20, y=200)
 
-        # CSV DOSYASI
+        # İSTATİSTİK
+        self.stat_label = tk.Label(root, text="Ortalama: -   Std Sapma: -", fg="purple")
+        self.stat_label.place(x=20, y=240)
+
+        # CSV
         self.file = open("veri_kaydi.csv", "a", newline="")
         self.writer = csv.writer(self.file)
+
+        # GRAFİK
+        self.fig, self.ax = plt.subplots()
+        self.ax.set_title("Canlı CPU Kullanımı")
+        self.ax.set_xlabel("Zaman")
+        self.ax.set_ylabel("CPU %")
+        self.line, = self.ax.plot([], [])
+
+        self.canvas = FigureCanvasTkAgg(self.fig, master=root)
+        self.canvas.get_tk_widget().place(x=20, y=280, width=850, height=300)
 
     def start_receiving(self):
         port = self.port_combo.get()
@@ -69,7 +89,6 @@ class ReceiverGUI:
     def stop_receiving(self):
         self.is_receiving = False
         self.status_label.config(text="Durum: Durduruldu", fg="red")
-
         if self.serial_port:
             self.serial_port.close()
 
@@ -81,17 +100,41 @@ class ReceiverGUI:
                     parts = data.split(",")
 
                     if len(parts) == 3:
-                        time_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        cpu = parts[1]
-                        ram = parts[2]
+                        time_now = datetime.now().strftime("%H:%M:%S")
+                        cpu = float(parts[1])
+                        ram = float(parts[2])
 
-                        # TABLOYA EKLE
+                        # TABLO
                         self.tree.insert("", "end", values=(time_now, cpu, ram))
                         self.tree.yview_moveto(1)
 
-                        # CSV'YE KAYDET
+                        # CSV
                         self.writer.writerow([time_now, cpu, ram])
                         self.file.flush()
+
+                        # GRAFİK VERİSİ
+                        self.cpu_values.append(cpu)
+                        self.time_values.append(time_now)
+
+                        if len(self.cpu_values) > 50:
+                            self.cpu_values.pop(0)
+                            self.time_values.pop(0)
+
+                        self.line.set_data(range(len(self.cpu_values)), self.cpu_values)
+                        self.ax.set_xlim(0, len(self.cpu_values))
+                        self.ax.set_ylim(0, 100)
+                        self.canvas.draw()
+
+                        # EŞİK KONTROL
+                        threshold = float(self.threshold_entry.get())
+                        if cpu > threshold:
+                            avg = round(statistics.mean(self.cpu_values), 2)
+                            std = round(statistics.stdev(self.cpu_values), 2) if len(self.cpu_values) > 1 else 0
+
+                            self.stat_label.config(
+                                text=f"Ortalama: {avg}   Std Sapma: {std}",
+                                fg="red"
+                            )
 
             except:
                 pass
