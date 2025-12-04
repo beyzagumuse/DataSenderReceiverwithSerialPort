@@ -34,7 +34,7 @@ class ReceiverGUI:
         # CPU EŞİK
         tk.Label(root, text="CPU Eşik (%):").place(x=20, y=100)
         self.threshold_entry = tk.Entry(root)
-        self.threshold_entry.insert(0, "50")
+        self.threshold_entry.insert(0, "10")
         self.threshold_entry.place(x=120, y=100)
 
         # BUTONLAR
@@ -43,7 +43,7 @@ class ReceiverGUI:
 
         # TABLO
         self.tree = ttk.Treeview(root, columns=("time", "cpu", "ram"), show="headings", height=8)
-        self.tree.heading("time", text="Zaman")
+        self.tree.heading("time", text="Tarih & Saat")
         self.tree.heading("cpu", text="CPU (%)")
         self.tree.heading("ram", text="RAM (%)")
         self.tree.place(x=320, y=20)
@@ -63,7 +63,7 @@ class ReceiverGUI:
         # GRAFİK
         self.fig, self.ax = plt.subplots()
         self.ax.set_title("Canlı CPU Kullanımı")
-        self.ax.set_xlabel("Zaman")
+        self.ax.set_xlabel("Ölçüm")
         self.ax.set_ylabel("CPU %")
         self.line, = self.ax.plot([], [])
 
@@ -100,41 +100,46 @@ class ReceiverGUI:
                     parts = data.split(",")
 
                     if len(parts) == 3:
-                        time_now = datetime.now().strftime("%H:%M:%S")
+                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         cpu = float(parts[1])
                         ram = float(parts[2])
 
                         # TABLO
-                        self.tree.insert("", "end", values=(time_now, cpu, ram))
+                        self.tree.insert("", "end", values=(timestamp, cpu, ram))
                         self.tree.yview_moveto(1)
 
-                        # CSV
-                        self.writer.writerow([time_now, cpu, ram])
+                        # CSV (TARİHLİ)
+                        self.writer.writerow([timestamp, cpu, ram])
                         self.file.flush()
 
-                        # GRAFİK VERİSİ
+                        # GRAFİK
                         self.cpu_values.append(cpu)
-                        self.time_values.append(time_now)
 
                         if len(self.cpu_values) > 50:
                             self.cpu_values.pop(0)
-                            self.time_values.pop(0)
 
                         self.line.set_data(range(len(self.cpu_values)), self.cpu_values)
-                        self.ax.set_xlim(0, len(self.cpu_values))
+                        self.ax.set_xlim(0, 50)
                         self.ax.set_ylim(0, 100)
                         self.canvas.draw()
 
-                        # EŞİK KONTROL
+                        # ✅ HER ZAMAN ORTALAMA & STD HESAPLA
+                        if len(self.cpu_values) > 1:
+                            avg = round(statistics.mean(self.cpu_values), 2)
+                            std = round(statistics.stdev(self.cpu_values), 2)
+                        else:
+                            avg = cpu
+                            std = 0
+
+                        self.stat_label.config(
+                            text=f"Ortalama: {avg}   Std Sapma: {std}",
+                            fg="purple"
+                        )
+
+                        # 🔴 SADECE EŞİK AŞINCA KIRMIZIYA DÖN
                         threshold = float(self.threshold_entry.get())
                         if cpu > threshold:
-                            avg = round(statistics.mean(self.cpu_values), 2)
-                            std = round(statistics.stdev(self.cpu_values), 2) if len(self.cpu_values) > 1 else 0
-
-                            self.stat_label.config(
-                                text=f"Ortalama: {avg}   Std Sapma: {std}",
-                                fg="red"
-                            )
+                            self.stat_label.config(fg="red")
 
             except:
                 pass
