@@ -4,11 +4,10 @@ import serial
 import serial.tools.list_ports
 import threading
 import csv
+from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
-import os
-from datetime import datetime
 
 BAUDRATE = 9600
 FORCED_PORT = "/dev/ttys006"
@@ -17,163 +16,191 @@ class SerialReceiverGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Seri Port Veri Alıcı & Analiz")
-        self.root.geometry("1050x700")
+        self.root.geometry("1200x800")
+        self.root.configure(bg="white")
 
         self.running = False
         self.cpu_values = []
         self.ser = None
 
-        # ================= ÜST KONTROL ALANI (ÇAKIŞMASIZ) =================
-        control_frame = tk.Frame(root)
-        control_frame.place(x=30, y=10, width=980, height=60)
+        # ================= BAŞLIK =================
+        tk.Label(root, text="Seri Port Veri Alıcı & Analiz",
+                 font=("Arial", 18, "bold"),
+                 bg="white", fg="black").pack(pady=12)
 
-        # --- 1. SATIR: PORT ---
-        tk.Label(control_frame, text="Receiver Port:",
-                 font=("Arial", 11, "bold")).grid(row=0, column=0, padx=10, pady=5, sticky="w")
+        # ================= PORT / BAUD / EŞİK =================
+        top_frame = tk.Frame(root, bg="white")
+        top_frame.pack(pady=8)
 
-        self.port_combo = ttk.Combobox(control_frame, width=25)
-        self.port_combo.grid(row=0, column=1, padx=5, pady=5)
+        tk.Label(top_frame, text="Seri Port:", bg="white", fg="black").grid(row=0, column=0, padx=10)
+        self.port_combo = ttk.Combobox(top_frame, width=28)
+        self.port_combo.grid(row=0, column=1, padx=10)
 
-        self.refresh_btn = ttk.Button(control_frame, text="Portları Yenile",
-                                      command=self.refresh_ports)
-        self.refresh_btn.grid(row=0, column=2, padx=10, pady=5)
+        tk.Label(top_frame, text="Baudrate:", bg="white", fg="black").grid(row=0, column=2, padx=10)
+        self.baud_entry = tk.Entry(top_frame, width=12, bg="white", fg="black")
+        self.baud_entry.insert(0, str(BAUDRATE))
+        self.baud_entry.grid(row=0, column=3, padx=10)
 
-        # --- 2. SATIR: EŞİK + BUTONLAR ---
-        tk.Label(control_frame, text="CPU Eşik (%):",
-                 font=("Arial", 11, "bold")).grid(row=1, column=0, padx=10, pady=5, sticky="w")
-
-        self.threshold_entry = tk.Entry(control_frame, width=10)
+        tk.Label(top_frame, text="CPU Eşik (%):", bg="white", fg="black").grid(row=0, column=4, padx=10)
+        self.threshold_entry = tk.Entry(top_frame, width=10, bg="white", fg="black")
         self.threshold_entry.insert(0, "50")
-        self.threshold_entry.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+        self.threshold_entry.grid(row=0, column=5, padx=10)
 
-        self.start_btn = ttk.Button(control_frame, text="Alımı Başlat", command=self.start)
-        self.start_btn.grid(row=1, column=2, padx=10, pady=5)
-
-        self.stop_btn = ttk.Button(control_frame, text="Alımı Durdur", command=self.stop)
-        self.stop_btn.grid(row=1, column=3, padx=10, pady=5)
-
-        # İlk açılışta portları yükle
         self.refresh_ports()
 
-        # ================= GRAFİK =================
-        self.fig, self.ax = plt.subplots()
+        # ================= BUTONLAR =================
+        button_frame = tk.Frame(root, bg="white")
+        button_frame.pack(pady=16)
+
+        self.start_btn = tk.Button(button_frame, text="Alımı Başlat",
+                                   bg="#0a7e3b", fg="white",
+                                   width=26, height=2, relief="flat",
+                                   command=self.start)
+        self.start_btn.grid(row=0, column=0, padx=15)
+
+        self.stop_btn = tk.Button(button_frame, text="Alımı Durdur",
+                                  bg="#5a2d00", fg="white",
+                                  width=26, height=2, relief="flat",
+                                  command=self.stop)
+        self.stop_btn.grid(row=0, column=1, padx=15)
+
+        self.exit_btn = tk.Button(button_frame, text="Alımı Bitir",
+                                  bg="black", fg="white",
+                                  width=55, height=2, relief="flat",
+                                  command=self.exit_app)
+        self.exit_btn.grid(row=1, column=0, columnspan=2, pady=12)
+
+        # ================= ORTA ALAN =================
+        middle_frame = tk.Frame(root, bg="white")
+        middle_frame.pack(fill="both", expand=True, padx=25)
+
+        # ---- ALINAN VERİ (KÜÇÜLTÜLDÜ) ----
+        left_frame = tk.LabelFrame(middle_frame, text="Alınan Veri",
+                                   bg="white", fg="black", font=("Arial", 11, "bold"))
+        left_frame.place(x=0, y=0, width=320, height=180)
+
+        self.lbl_date = tk.Label(left_frame, text="Tarih:", bg="white", fg="black", anchor="w")
+        self.lbl_date.pack(fill="x", padx=10, pady=3)
+
+        self.lbl_time = tk.Label(left_frame, text="Saat:", bg="white", fg="black", anchor="w")
+        self.lbl_time.pack(fill="x", padx=10, pady=3)
+
+        self.lbl_cpu = tk.Label(left_frame, text="CPU:", bg="white", fg="black", anchor="w")
+        self.lbl_cpu.pack(fill="x", padx=10, pady=3)
+
+        self.lbl_ram = tk.Label(left_frame, text="RAM:", bg="white", fg="black", anchor="w")
+        self.lbl_ram.pack(fill="x", padx=10, pady=3)
+
+        # ---- CPU GRAFİĞİ (AŞAĞI UZATILDI) ----
+        right_frame = tk.LabelFrame(middle_frame, text="CPU Kullanımı (%)",
+                                    bg="white", fg="black", font=("Arial", 11, "bold"))
+        right_frame.place(x=350, y=0, width=820, height=520)
+
+        self.fig, self.ax = plt.subplots(figsize=(6, 4))
         self.line, = self.ax.plot([], [])
-        self.ax.set_title("CPU Kullanımı (%)")
         self.ax.set_xlabel("Zaman")
         self.ax.set_ylabel("CPU %")
 
-        self.canvas = FigureCanvasTkAgg(self.fig, master=root)
-        self.canvas.get_tk_widget().place(x=30, y=90, width=980, height=430)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=right_frame)
+        self.canvas.get_tk_widget().pack(fill="both", expand=True)
 
-        # ================= ANALİZ SONUÇLARI =================
-        self.mean_lbl = tk.Label(root, text="Ortalama: -", font=("Arial", 11, "bold"))
-        self.mean_lbl.place(x=30, y=540)
+        # ================= ALT ANALİZ =================
+        self.mean_lbl = tk.Label(root, text="Ortalama: -",
+                                 font=("Arial", 12, "bold"),
+                                 bg="white", fg="black")
+        self.mean_lbl.pack(pady=4)
 
-        self.std_lbl = tk.Label(root, text="Standart Sapma: -", font=("Arial", 11, "bold"))
-        self.std_lbl.place(x=250, y=540)
+        self.std_lbl = tk.Label(root, text="Standart Sapma: -",
+                                font=("Arial", 12, "bold"),
+                                bg="white", fg="black")
+        self.std_lbl.pack()
 
         self.status_lbl = tk.Label(root, text="Durum: Bekleniyor",
-                                   font=("Arial", 11, "bold"), fg="blue")
-        self.status_lbl.place(x=520, y=540)
+                                   font=("Arial", 12, "bold"),
+                                   fg="black", bg="white")
+        self.status_lbl.pack(pady=10)
 
-    # ================= PORTLARI YENİLE =================
+    # ================= PORT YENİLE =================
     def refresh_ports(self):
         ports = serial.tools.list_ports.comports()
-        port_list = [port.device for port in ports]
-
+        port_list = [p.device for p in ports]
         if FORCED_PORT not in port_list:
             port_list.append(FORCED_PORT)
 
         self.port_combo["values"] = port_list
-
-        if FORCED_PORT in port_list:
-            self.port_combo.set(FORCED_PORT)
-        elif port_list:
+        if port_list:
             self.port_combo.set(port_list[0])
-        else:
-            self.port_combo.set("")
 
     # ================= BAŞLAT =================
     def start(self):
+        port = self.port_combo.get()
+        baud = int(self.baud_entry.get())
+
         now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.csv_file = f"veri_kaydi_{now}.csv"
-        selected_port = self.port_combo.get().strip()
 
-        if not selected_port:
-            self.status_lbl.config(text="Durum: Port Seçilmedi", fg="red")
-            return
-
-        try:
-            self.ser = serial.Serial(selected_port, BAUDRATE)
-        except Exception:
-            self.status_lbl.config(text="Durum: Port Açılamadı", fg="red")
-            return
-
-        self.running = True
-        self.cpu_values.clear()
-        self.status_lbl.config(text="Durum: Veri Alınıyor", fg="green")
-
-        # CSV BAŞLIK
         with open(self.csv_file, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["Tarih", "Saat", "CPU", "RAM"])
 
+        self.ser = serial.Serial(port, baud)
+        self.running = True
+        self.cpu_values.clear()
+        self.status_lbl.config(text="Durum: Veri Alınıyor", fg="green")
+
         threading.Thread(target=self.receive_loop, daemon=True).start()
 
-    # ================= DURDUR =================
     def stop(self):
         self.running = False
         if self.ser:
             self.ser.close()
-        self.status_lbl.config(text="Durum: Durduruldu", fg="red")
+        self.status_lbl.config(text="Durum: Durduruldu", fg="#5a2d00")
 
-    # ================= VERİ ALMA DÖNGÜSÜ =================
+    def exit_app(self):
+        self.running = False
+        if self.ser:
+            self.ser.close()
+        self.root.destroy()
+
+    # ================= VERİ OKUMA =================
     def receive_loop(self):
-        time_index = 0
         x_data, y_data = [], []
+        idx = 0
 
         while self.running:
             try:
-                raw = self.ser.readline().decode().strip()
-            except:
-                continue
-
-            parts = raw.split(",")
-
-            if len(parts) == 4:
-                date, time_s, cpu, ram = parts
+                raw = self.ser.readline().decode().strip().split(",")
+                date, time_s, cpu, ram = raw
                 cpu = float(cpu)
 
-                # CSV KAYIT
-                with open(self.csv_file, "a", newline="") as f:
-                    writer = csv.writer(f)
-                    writer.writerow([date, time_s, cpu, ram])
+                self.lbl_date.config(text=f"Tarih: {date}")
+                self.lbl_time.config(text=f"Saat: {time_s}")
+                self.lbl_cpu.config(text=f"CPU: {cpu}")
+                self.lbl_ram.config(text=f"RAM: {ram}")
 
-                # GRAFİK
-                x_data.append(time_index)
+                with open(self.csv_file, "a", newline="") as f:
+                    csv.writer(f).writerow(raw)
+
+                x_data.append(idx)
                 y_data.append(cpu)
-                time_index += 1
+                idx += 1
 
                 self.line.set_data(x_data, y_data)
                 self.ax.relim()
                 self.ax.autoscale_view()
                 self.canvas.draw()
 
-                # EŞİK & İSTATİSTİK
-                try:
-                    threshold = float(self.threshold_entry.get())
-                except:
-                    threshold = 9999
+                self.cpu_values.append(cpu)
+                mean = np.mean(self.cpu_values)
+                std = np.std(self.cpu_values)
 
-                if cpu > threshold:
-                    self.cpu_values.append(cpu)
-                    mean = np.mean(self.cpu_values)
-                    std = np.std(self.cpu_values)
+                self.mean_lbl.config(text=f"Ortalama: {mean:.2f}")
+                self.std_lbl.config(text=f"Standart Sapma: {std:.2f}")
 
-                    self.mean_lbl.config(text=f"Ortalama: {mean:.2f}")
-                    self.std_lbl.config(text=f"Standart Sapma: {std:.2f}")
+            except:
+                pass
 
-# ================= UYGULAMAYI BAŞLAT =================
+
 if __name__ == "__main__":
     root = tk.Tk()
     app = SerialReceiverGUI(root)
