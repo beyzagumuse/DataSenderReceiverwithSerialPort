@@ -116,13 +116,21 @@ class SerialSenderGUI:
         ports = serial.tools.list_ports.comports()
         port_list = [port.device for port in ports]
 
+        # ZORLA EKLENECEK PORT
+        forced_port = "/dev/ttys005"
+
+        if forced_port not in port_list:
+            port_list.append(forced_port)
+
         self.port_combo["values"] = port_list
 
-        if port_list:
-            self.port_combo.set(port_list[0])  # İlkini seç
+        # Varsayılan olarak /dev/ttys005 seçili gelsin
+        if forced_port in port_list:
+            self.port_combo.set(forced_port)
+        elif port_list:
+            self.port_combo.set(port_list[0])
         else:
             self.port_combo.set("")
-
     # ===== BAŞLAT =====
     def start_sending(self):
         port = self.port_combo.get().strip()
