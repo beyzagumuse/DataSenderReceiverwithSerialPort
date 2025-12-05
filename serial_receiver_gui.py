@@ -1,39 +1,61 @@
 import tkinter as tk
 from tkinter import ttk
 import serial
+import serial.tools.list_ports
 import threading
 import csv
-from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
+import os
+from datetime import datetime
 
-PORT = "/dev/ttys006"
 BAUDRATE = 9600
-CSV_FILE = "veri_kaydi.csv"
+FORCED_PORT = "/dev/ttys006"
 
 class SerialReceiverGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Seri Port Veri Alıcı & Analiz")
-        self.root.geometry("1000x650")
+        self.root.geometry("1050x700")
 
         self.running = False
         self.cpu_values = []
+        self.ser = None
 
-        # ===== EŞİK =====
-        tk.Label(root, text="CPU Eşik Değeri (%):").place(x=30, y=20)
-        self.threshold_entry = tk.Entry(root)
+        # ================= ÜST KONTROL ALANI (ÇAKIŞMASIZ) =================
+        control_frame = tk.Frame(root)
+        control_frame.place(x=30, y=10, width=980, height=60)
+
+        # --- 1. SATIR: PORT ---
+        tk.Label(control_frame, text="Receiver Port:",
+                 font=("Arial", 11, "bold")).grid(row=0, column=0, padx=10, pady=5, sticky="w")
+
+        self.port_combo = ttk.Combobox(control_frame, width=25)
+        self.port_combo.grid(row=0, column=1, padx=5, pady=5)
+
+        self.refresh_btn = ttk.Button(control_frame, text="Portları Yenile",
+                                      command=self.refresh_ports)
+        self.refresh_btn.grid(row=0, column=2, padx=10, pady=5)
+
+        # --- 2. SATIR: EŞİK + BUTONLAR ---
+        tk.Label(control_frame, text="CPU Eşik (%):",
+                 font=("Arial", 11, "bold")).grid(row=1, column=0, padx=10, pady=5, sticky="w")
+
+        self.threshold_entry = tk.Entry(control_frame, width=10)
         self.threshold_entry.insert(0, "50")
-        self.threshold_entry.place(x=180, y=20)
+        self.threshold_entry.grid(row=1, column=1, padx=5, pady=5, sticky="w")
 
-        self.start_btn = ttk.Button(root, text="Alımı Başlat", command=self.start)
-        self.start_btn.place(x=350, y=18, width=120)
+        self.start_btn = ttk.Button(control_frame, text="Alımı Başlat", command=self.start)
+        self.start_btn.grid(row=1, column=2, padx=10, pady=5)
 
-        self.stop_btn = ttk.Button(root, text="Alımı Durdur", command=self.stop)
-        self.stop_btn.place(x=480, y=18, width=120)
+        self.stop_btn = ttk.Button(control_frame, text="Alımı Durdur", command=self.stop)
+        self.stop_btn.grid(row=1, column=3, padx=10, pady=5)
 
-        # ===== GRAFİK =====
+        # İlk açılışta portları yükle
+        self.refresh_ports()
+
+        # ================= GRAFİK =================
         self.fig, self.ax = plt.subplots()
         self.line, = self.ax.plot([], [])
         self.ax.set_title("CPU Kullanımı (%)")
@@ -41,39 +63,81 @@ class SerialReceiverGUI:
         self.ax.set_ylabel("CPU %")
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=root)
-        self.canvas.get_tk_widget().place(x=30, y=80, width=920, height=400)
+        self.canvas.get_tk_widget().place(x=30, y=90, width=980, height=430)
 
-        # ===== ANALİZ SONUÇLARI =====
-        self.mean_lbl = tk.Label(root, text="Ortalama: -")
-        self.mean_lbl.place(x=30, y=520)
+        # ================= ANALİZ SONUÇLARI =================
+        self.mean_lbl = tk.Label(root, text="Ortalama: -", font=("Arial", 11, "bold"))
+        self.mean_lbl.place(x=30, y=540)
 
-        self.std_lbl = tk.Label(root, text="Standart Sapma: -")
-        self.std_lbl.place(x=200, y=520)
+        self.std_lbl = tk.Label(root, text="Standart Sapma: -", font=("Arial", 11, "bold"))
+        self.std_lbl.place(x=250, y=540)
 
-    # ===== BAŞLAT =====
+        self.status_lbl = tk.Label(root, text="Durum: Bekleniyor",
+                                   font=("Arial", 11, "bold"), fg="blue")
+        self.status_lbl.place(x=520, y=540)
+
+    # ================= PORTLARI YENİLE =================
+    def refresh_ports(self):
+        ports = serial.tools.list_ports.comports()
+        port_list = [port.device for port in ports]
+
+        if FORCED_PORT not in port_list:
+            port_list.append(FORCED_PORT)
+
+        self.port_combo["values"] = port_list
+
+        if FORCED_PORT in port_list:
+            self.port_combo.set(FORCED_PORT)
+        elif port_list:
+            self.port_combo.set(port_list[0])
+        else:
+            self.port_combo.set("")
+
+    # ================= BAŞLAT =================
     def start(self):
+        now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        self.csv_file = f"veri_kaydi_{now}.csv"
+        selected_port = self.port_combo.get().strip()
+
+        if not selected_port:
+            self.status_lbl.config(text="Durum: Port Seçilmedi", fg="red")
+            return
+
+        try:
+            self.ser = serial.Serial(selected_port, BAUDRATE)
+        except Exception:
+            self.status_lbl.config(text="Durum: Port Açılamadı", fg="red")
+            return
+
         self.running = True
         self.cpu_values.clear()
+        self.status_lbl.config(text="Durum: Veri Alınıyor", fg="green")
 
-        with open(CSV_FILE, "w", newline="") as f:
+        # CSV BAŞLIK
+        with open(self.csv_file, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["Tarih", "Saat", "CPU", "RAM"])
 
-        self.ser = serial.Serial(PORT, BAUDRATE)
         threading.Thread(target=self.receive_loop, daemon=True).start()
 
-    # ===== DURDUR =====
+    # ================= DURDUR =================
     def stop(self):
         self.running = False
-        self.ser.close()
+        if self.ser:
+            self.ser.close()
+        self.status_lbl.config(text="Durum: Durduruldu", fg="red")
 
-    # ===== VERİ ALMA DÖNGÜSÜ =====
+    # ================= VERİ ALMA DÖNGÜSÜ =================
     def receive_loop(self):
         time_index = 0
         x_data, y_data = [], []
 
         while self.running:
-            raw = self.ser.readline().decode().strip()
+            try:
+                raw = self.ser.readline().decode().strip()
+            except:
+                continue
+
             parts = raw.split(",")
 
             if len(parts) == 4:
@@ -81,7 +145,7 @@ class SerialReceiverGUI:
                 cpu = float(cpu)
 
                 # CSV KAYIT
-                with open(CSV_FILE, "a", newline="") as f:
+                with open(self.csv_file, "a", newline="") as f:
                     writer = csv.writer(f)
                     writer.writerow([date, time_s, cpu, ram])
 
@@ -95,8 +159,12 @@ class SerialReceiverGUI:
                 self.ax.autoscale_view()
                 self.canvas.draw()
 
-                # EŞİK ANALİZİ
-                threshold = float(self.threshold_entry.get())
+                # EŞİK & İSTATİSTİK
+                try:
+                    threshold = float(self.threshold_entry.get())
+                except:
+                    threshold = 9999
+
                 if cpu > threshold:
                     self.cpu_values.append(cpu)
                     mean = np.mean(self.cpu_values)
@@ -105,7 +173,7 @@ class SerialReceiverGUI:
                     self.mean_lbl.config(text=f"Ortalama: {mean:.2f}")
                     self.std_lbl.config(text=f"Standart Sapma: {std:.2f}")
 
-# ===== UYGULAMAYI BAŞLAT =====
+# ================= UYGULAMAYI BAŞLAT =================
 if __name__ == "__main__":
     root = tk.Tk()
     app = SerialReceiverGUI(root)
