@@ -15,6 +15,8 @@ class ReceiverApp:
         root.title("Seri Port Veri Alıcı & Analiz")
         root.geometry("1200x800")
         root.configure(bg="#f5f5f5")
+        self.last_timestamp = None
+        
 
         self.running = False
         self.data_cpu = []
@@ -211,6 +213,14 @@ class ReceiverApp:
                 tarih, saat, cpu, ram = line.split(",")
                 cpu = float(cpu)
                 ram = float(ram)
+
+                current_timestamp = f"{tarih} {saat}"
+
+                # ✅ AYNI SANİYE İÇİN TEKRAR YAZMA
+                if self.last_timestamp == current_timestamp:
+                    continue
+
+                self.last_timestamp = current_timestamp
 
                 self.lbl_date.config(text=f"Tarih: {tarih}")
                 self.lbl_time.config(text=f"Saat: {saat}")
