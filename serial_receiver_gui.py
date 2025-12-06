@@ -4,7 +4,6 @@ import serial
 import serial.tools.list_ports
 import threading
 import csv
-import os
 from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -14,100 +13,138 @@ class ReceiverApp:
     def __init__(self, root):
         self.root = root
         root.title("Seri Port Veri Alıcı & Analiz")
-        root.geometry("1100x700")
+        root.geometry("1200x800")
         root.configure(bg="#f5f5f5")
 
         self.running = False
         self.data_cpu = []
 
-        # ===== STYLE =====
+        # ===== GRID ANA YAPI (RESPONSIVE) =====
+        root.columnconfigure(0, weight=1)
+        root.columnconfigure(1, weight=3)
+        root.rowconfigure(0, weight=0)
+        root.rowconfigure(1, weight=0)
+        root.rowconfigure(2, weight=1)
+        root.rowconfigure(3, weight=0)
+
+        # ===== STYLE (SENDER İLE AYNI) =====
         style = ttk.Style()
         style.theme_use("default")
 
-        style.configure("Green.TButton", background="#3b8f3e", foreground="white",
-                        font=("Arial", 11, "bold"), padding=10)
+        style.configure("Green.TButton",
+                        background="#3b8f3e",
+                        foreground="white",
+                        font=("Arial", 11, "bold"),
+                        padding=10)
 
-        style.configure("Brown.TButton", background="#5a330a", foreground="white",
-                        font=("Arial", 11, "bold"), padding=10)
+        style.configure("Brown.TButton",
+                        background="#5a330a",
+                        foreground="white",
+                        font=("Arial", 11, "bold"),
+                        padding=10)
 
-        style.configure("Black.TButton", background="black", foreground="white",
-                        font=("Arial", 11, "bold"), padding=10)
+        style.configure("Black.TButton",
+                        background="black",
+                        foreground="white",
+                        font=("Arial", 11, "bold"),
+                        padding=10)
 
         # ===== BAŞLIK =====
         tk.Label(root, text="Seri Port Veri Alıcı & Analiz",
                  font=("Arial", 20, "bold"),
-                 bg="#f5f5f5", fg="black").pack(pady=20)
+                 bg="#f5f5f5", fg="black").grid(row=0, column=0, columnspan=2, pady=20)
 
-        # ===== AYAR ALANI =====
+        # ===== AYAR PANELİ =====
         frame = tk.Frame(root, bg="white", highlightbackground="black", highlightthickness=1)
-        frame.place(x=250, y=90, width=600, height=130)
+        frame.grid(row=1, column=0, columnspan=2, padx=30, pady=10, sticky="ew")
+        frame.columnconfigure(1, weight=1)
+        frame.columnconfigure(3, weight=1)
 
-        tk.Label(frame, text="Seri Port:", bg="white").place(x=30, y=25)
-        self.port_combo = ttk.Combobox(frame, width=25)
-        self.port_combo.place(x=150, y=25)
+        tk.Label(frame, text="Seri Port:", bg="white", fg="black").grid(row=0, column=0, padx=10, pady=10, sticky="w")
+
+        self.port_combo = ttk.Combobox(frame, width=30)
+        self.port_combo.grid(row=0, column=1, padx=10, pady=10, sticky="w")
         self.refresh_ports()
 
-        tk.Label(frame, text="Baudrate:", bg="white").place(x=30, y=65)
-        self.baud_entry = tk.Entry(frame, width=28)
-        self.baud_entry.insert(0, "9600")
-        self.baud_entry.place(x=150, y=65)
+        tk.Label(frame, text="Baudrate:", bg="white", fg="black").grid(row=1, column=0, padx=10, pady=10, sticky="w")
 
-        tk.Label(frame, text="CPU Eşik (%):", bg="white").place(x=360, y=25)
-        self.cpu_threshold = tk.Entry(frame, width=10)
+        self.baud_entry = tk.Entry(frame, width=30, fg="black", bg="white")
+        self.baud_entry.insert(0, "9600")
+        self.baud_entry.grid(row=1, column=1, padx=10, pady=10, sticky="w")
+
+        tk.Label(frame, text="CPU Eşik (%):", bg="white", fg="black").grid(row=0, column=2, padx=10, pady=10, sticky="w")
+
+        self.cpu_threshold = tk.Entry(frame, width=15, fg="black", bg="white")
         self.cpu_threshold.insert(0, "50")
-        self.cpu_threshold.place(x=470, y=25)
+        self.cpu_threshold.grid(row=0, column=3, padx=10, pady=10, sticky="w")
 
         # ===== BUTONLAR =====
-        self.start_btn = ttk.Button(root, text="Alımı Başlat",
-                                    style="Green.TButton", command=self.start)
-        self.start_btn.place(x=350, y=250, width=180)
+        btn_frame = tk.Frame(root, bg="#f5f5f5")
+        btn_frame.grid(row=3, column=0, columnspan=2, pady=20)
 
-        self.stop_btn = ttk.Button(root, text="Alımı Durdur",
-                                   style="Brown.TButton", command=self.stop)
-        self.stop_btn.place(x=570, y=250, width=180)
+        self.start_btn = ttk.Button(btn_frame, text="Alımı Başlat",
+                                    style="Green.TButton",
+                                    command=self.start)
+        self.start_btn.grid(row=0, column=0, padx=20)
 
-        self.exit_btn = ttk.Button(root, text="Alımı Bitir",
-                                   style="Black.TButton", command=self.exit_app)
-        self.exit_btn.place(x=460, y=310, width=180)
+        self.stop_btn = ttk.Button(btn_frame, text="Alımı Durdur",
+                                   style="Brown.TButton",
+                                   command=self.stop)
+        self.stop_btn.grid(row=0, column=1, padx=20)
 
-        # ===== ALINAN VERİ KUTUSU =====
+        self.exit_btn = ttk.Button(btn_frame, text="Alımı Bitir",
+                                   style="Black.TButton",
+                                   command=self.exit_app)
+        self.exit_btn.grid(row=0, column=2, padx=20)
+
+        # ===== SOL: ALINAN VERİ =====
         box = tk.Frame(root, bg="white", highlightbackground="black", highlightthickness=1)
-        box.place(x=50, y=380, width=300, height=180)
+        box.grid(row=2, column=0, padx=20, pady=20, sticky="nsew")
+        box.columnconfigure(0, weight=1)
 
-        tk.Label(box, text="Alınan Veri", bg="white", font=("Arial", 11, "bold")).pack(pady=5)
-        self.lbl_date = tk.Label(box, text="Tarih:", bg="white")
-        self.lbl_date.pack(anchor="w", padx=10)
-        self.lbl_time = tk.Label(box, text="Saat:", bg="white")
-        self.lbl_time.pack(anchor="w", padx=10)
-        self.lbl_cpu = tk.Label(box, text="CPU:", bg="white")
-        self.lbl_cpu.pack(anchor="w", padx=10)
-        self.lbl_ram = tk.Label(box, text="RAM:", bg="white")
-        self.lbl_ram.pack(anchor="w", padx=10)
+        tk.Label(box, text="Alınan Veri", bg="white", fg="black",
+                 font=("Arial", 11, "bold")).pack(pady=8)
 
-        # ===== GRAFİK =====
+        self.lbl_date = tk.Label(box, text="Tarih:", bg="white", fg="black")
+        self.lbl_date.pack(anchor="w", padx=15)
+
+        self.lbl_time = tk.Label(box, text="Saat:", bg="white", fg="black")
+        self.lbl_time.pack(anchor="w", padx=15)
+
+        self.lbl_cpu = tk.Label(box, text="CPU:", bg="white", fg="black")
+        self.lbl_cpu.pack(anchor="w", padx=15)
+
+        self.lbl_ram = tk.Label(box, text="RAM:", bg="white", fg="black")
+        self.lbl_ram.pack(anchor="w", padx=15)
+
+        self.status_label = tk.Label(box, text="Durum: Bekleniyor", bg="white", fg="black")
+        self.status_label.pack(anchor="w", padx=15, pady=10)
+
+        # ===== SAĞ: GRAFİK (RESPONSIVE) =====
         graph_frame = tk.Frame(root, bg="white", highlightbackground="black", highlightthickness=1)
-        graph_frame.place(x=380, y=370, width=670, height=300)
+        graph_frame.grid(row=2, column=1, padx=20, pady=20, sticky="nsew")
+
+        graph_frame.rowconfigure(0, weight=1)
+        graph_frame.columnconfigure(0, weight=1)
 
         self.fig, self.ax = plt.subplots()
         self.ax.set_title("CPU Kullanımı (%)")
         self.ax.set_xlabel("Zaman")
         self.ax.set_ylabel("CPU %")
+
         self.line, = self.ax.plot([], [])
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=graph_frame)
-        self.canvas.get_tk_widget().pack(fill="both", expand=True)
+        self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
 
         # ===== İSTATİSTİK =====
-        self.avg_label = tk.Label(root, text="Ortalama: -", bg="#f5f5f5")
-        self.avg_label.place(x=650, y=680)
+        self.avg_label = tk.Label(root, text="Ortalama: -", bg="#f5f5f5", fg="black")
+        self.avg_label.grid(row=4, column=1, sticky="w", padx=25)
 
-        self.std_label = tk.Label(root, text="Standart Sapma: -", bg="#f5f5f5")
-        self.std_label.place(x=650, y=705)
+        self.std_label = tk.Label(root, text="Standart Sapma: -", bg="#f5f5f5", fg="black")
+        self.std_label.grid(row=5, column=1, sticky="w", padx=25)
 
-        self.status_label = tk.Label(root, text="Durum: Bekleniyor", bg="#f5f5f5")
-        self.status_label.place(x=50, y=680)
-
-    # ===== PORTLARI YENİLE =====
+    # ===== TÜM PORTLARI LİSTELE =====
     def refresh_ports(self):
         ports = serial.tools.list_ports.comports()
         port_list = [p.device for p in ports]
@@ -117,7 +154,8 @@ class ReceiverApp:
             port_list.append(forced)
 
         self.port_combo["values"] = port_list
-        self.port_combo.set(forced)
+        if port_list:
+            self.port_combo.set(port_list[0])
 
     # ===== BAŞLAT =====
     def start(self):
@@ -174,6 +212,7 @@ class ReceiverApp:
 
                 self.data_cpu.append(cpu)
                 self.line.set_data(range(len(self.data_cpu)), self.data_cpu)
+
                 self.ax.relim()
                 self.ax.autoscale_view()
                 self.canvas.draw()
