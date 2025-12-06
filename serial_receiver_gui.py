@@ -134,6 +134,17 @@ class ReceiverApp:
 
         self.line, = self.ax.plot([], [])
 
+        # Eşik çizgisi (kırmızı yatay çizgi)
+        self.threshold_line = self.ax.axhline(
+            y=float(self.cpu_threshold.get()),
+            color="red",
+            linestyle="--",
+            linewidth=2,
+            label="CPU Eşik"
+        )
+
+        self.ax.legend()
+
         self.canvas = FigureCanvasTkAgg(self.fig, master=graph_frame)
         self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
 
@@ -211,14 +222,45 @@ class ReceiverApp:
                     writer.writerow([tarih, saat, cpu, ram])
 
                 self.data_cpu.append(cpu)
-                self.line.set_data(range(len(self.data_cpu)), self.data_cpu)
 
-                self.ax.relim()
-                self.ax.autoscale_view()
-                self.canvas.draw()
+                x_vals = list(range(len(self.data_cpu)))
+                y_vals = self.data_cpu
 
                 threshold = float(self.cpu_threshold.get())
-                over = [x for x in self.data_cpu if x > threshold]
+
+                # Çizgiyi temizle
+                self.ax.clear()
+
+                # Eşik altı ve üstü ayır
+                below_x = [i for i, v in zip(x_vals, y_vals) if v < threshold]
+                below_y = [v for v in y_vals if v < threshold]
+
+                above_x = [i for i, v in zip(x_vals, y_vals) if v >= threshold]
+                above_y = [v for v in y_vals if v >= threshold]
+
+                # Eşik altı → mavi çizgi
+                # ✅ HER ZAMAN TÜM VERİYİ MAVİ ÇİZ
+                self.ax.plot(x_vals, y_vals, color="blue", label="Normal")
+
+                # Eşik üstü → kırmızı nokta
+                self.ax.scatter(above_x, above_y, color="red", label="Kritik")
+
+                # Eşik yatay çizgisi
+                self.ax.axhline(y=threshold, color="red", linestyle="--", linewidth=2, label="CPU Eşik")
+
+                self.ax.set_title("CPU Kullanımı (%)")
+                self.ax.set_xlabel("Zaman")
+                self.ax.set_ylabel("CPU %")
+                self.ax.legend()
+
+                # ----- SABİT EŞİK ODAKLI Y-AXIS -----
+                y_min = max(0, threshold - 10)
+                y_max = threshold + 10
+
+                self.ax.set_ylim(y_min, y_max)
+                self.canvas.draw()
+
+                over = [x for x in self.data_cpu if x >= threshold]
 
                 if over:
                     avg = np.mean(over)
