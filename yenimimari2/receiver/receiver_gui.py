@@ -81,6 +81,11 @@ class ReceiverApp:
         self.cpu_threshold.insert(0, "10")
         self.cpu_threshold.grid(row=0, column=3, padx=10, pady=10)
 
+        tk.Label(frame, text="RAM Eşik (%):", bg="white", fg="black").grid(row=0, column=2, padx=10, pady=10)
+        self.cpu_threshold = tk.Entry(frame, width=15, fg="black", bg="white")
+        self.cpu_threshold.insert(0, "10")
+        self.cpu_threshold.grid(row=0, column=3, padx=10, pady=10)
+
         # ===== GRAFİK BUTONLARI =====
         graph_btns = tk.Frame(root, bg="#f5f5f5")
         graph_btns.grid(row=3, column=0, sticky="w", padx=40)
@@ -277,6 +282,14 @@ class ReceiverApp:
             self.ax.set_title("RAM Kullanımı (%)")
             self.ax.set_ylabel("RAM %")
             self.ax.plot(y_vals)
+
+            self.ax.plot(y_vals, label="Normal", color="blue")
+            self.ax.scatter(above_x, above_y, color="red", label="Kritik")
+            self.ax.axhline(y=threshold, color="red", linestyle="--", label="RAM Eşik")
+
+            y_min = max(0, threshold - 10)
+            y_max = threshold + 10
+            self.ax.set_ylim(y_min, y_max)
 
         self.ax.set_xlabel("Zaman")
         self.canvas.draw()
