@@ -182,6 +182,13 @@ class ReceiverApp:
             writer = csv.writer(f)
             writer.writerow(["Tarih", "Saat", "CPU", "RAM", "ALARM"])
 
+        # ✅ ALARM LOG DOSYASI OLUŞTUR
+        self.alarm_file = f"alarm_log_{now}.csv"
+
+        with open(self.alarm_file, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Tarih", "Saat", "CPU", "Eşik"])
+
         self.ser = serial.Serial(self.port_combo.get(),
                                  int(self.baud_entry.get()),
                                  timeout=1)
