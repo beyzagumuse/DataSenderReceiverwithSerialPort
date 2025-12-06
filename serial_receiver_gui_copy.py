@@ -37,6 +37,18 @@ class ReceiverApp:
                         foreground="white",
                         font=("Arial", 11, "bold"),
                         padding=10)
+        
+        style.configure("Blue.TButton",
+                        background="#312edc",
+                        foreground="white",
+                        font=("Arial", 11, "bold"),
+                        padding=10)
+        
+        style.configure("Orange.TButton",
+                        background="#dca42b",
+                        foreground="white",
+                        font=("Arial", 11, "bold"),
+                        padding=10)
 
         style.configure("Black.TButton",
                         background="black",
@@ -73,11 +85,11 @@ class ReceiverApp:
         graph_btns.grid(row=3, column=0, sticky="w", padx=40)
 
         ttk.Button(graph_btns, text="CPU Grafiği",
-                   style="Green.TButton",
+                   style="Blue.TButton",
                    command=lambda: self.change_graph("CPU")).grid(row=0, column=0, padx=10)
 
         ttk.Button(graph_btns, text="RAM Grafiği",
-                   style="Brown.TButton",
+                   style="Orange.TButton",
                    command=lambda: self.change_graph("RAM")).grid(row=0, column=1, padx=10)
 
         # ===== ANA BUTONLAR =====

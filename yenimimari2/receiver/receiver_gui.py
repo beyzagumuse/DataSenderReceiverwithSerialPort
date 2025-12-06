@@ -14,7 +14,7 @@ class ReceiverApp:
     def __init__(self, root):
         self.root = root
         root.title("Seri Port Veri Alıcı & Analiz")
-        root.geometry("1200x800")
+        root.geometry("950x950")
         root.configure(bg="#f5f5f5")
 
         self.running = False
@@ -35,6 +35,18 @@ class ReceiverApp:
 
         style.configure("Brown.TButton",
                         background="#5a330a",
+                        foreground="white",
+                        font=("Arial", 11, "bold"),
+                        padding=10)
+        
+        style.configure("Blue.TButton",
+                        background="#312edc",
+                        foreground="white",
+                        font=("Arial", 11, "bold"),
+                        padding=10)
+        
+        style.configure("Orange.TButton",
+                        background="#dca42b",
                         foreground="white",
                         font=("Arial", 11, "bold"),
                         padding=10)
@@ -74,11 +86,11 @@ class ReceiverApp:
         graph_btns.grid(row=3, column=0, sticky="w", padx=40)
 
         ttk.Button(graph_btns, text="CPU Grafiği",
-                   style="Green.TButton",
+                   style="Blue.TButton",
                    command=lambda: self.change_graph("CPU")).grid(row=0, column=0, padx=10)
 
         ttk.Button(graph_btns, text="RAM Grafiği",
-                   style="Brown.TButton",
+                   style="Orange.TButton",
                    command=lambda: self.change_graph("RAM")).grid(row=0, column=1, padx=10)
 
         # ===== ANA BUTONLAR =====
@@ -149,6 +161,11 @@ class ReceiverApp:
     def refresh_ports(self):
         ports = serial.tools.list_ports.comports()
         port_list = [p.device for p in ports]
+
+        forced = "/dev/ttys006"
+        if forced not in port_list:
+            port_list.append(forced)
+
         self.port_combo["values"] = port_list
         if port_list:
             self.port_combo.set(port_list[0])
@@ -247,9 +264,9 @@ class ReceiverApp:
             above_x = [i for i, v in enumerate(y_vals) if v >= threshold]
             above_y = [v for v in y_vals if v >= threshold]
 
-            self.ax.plot(y_vals)
-            self.ax.scatter(above_x, above_y)
-            self.ax.axhline(y=threshold, linestyle="--")
+            self.ax.plot(y_vals, label="Normal", color="blue")
+            self.ax.scatter(above_x, above_y, color="red", label="Kritik")
+            self.ax.axhline(y=threshold, color="red", linestyle="--", label="CPU Eşik")
 
             y_min = max(0, threshold - 10)
             y_max = threshold + 10
