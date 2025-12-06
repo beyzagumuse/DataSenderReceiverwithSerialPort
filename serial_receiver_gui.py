@@ -180,7 +180,7 @@ class ReceiverApp:
 
         with open(self.csv_file, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["Tarih", "Saat", "CPU", "RAM"])
+            writer.writerow(["Tarih", "Saat", "CPU", "RAM", "ALARM"])
 
         self.ser = serial.Serial(self.port_combo.get(),
                                  int(self.baud_entry.get()),
