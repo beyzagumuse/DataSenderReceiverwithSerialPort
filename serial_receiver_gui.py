@@ -15,21 +15,12 @@ class ReceiverApp:
         root.title("Seri Port Veri Alıcı & Analiz")
         root.geometry("1200x800")
         root.configure(bg="#f5f5f5")
-        self.last_timestamp = None
-        
 
         self.running = False
         self.data_cpu = []
+        self.last_timestamp = None
 
-        # ===== GRID ANA YAPI (RESPONSIVE) =====
-        root.columnconfigure(0, weight=1)
-        root.columnconfigure(1, weight=3)
-        root.rowconfigure(0, weight=0)
-        root.rowconfigure(1, weight=0)
-        root.rowconfigure(2, weight=1)
-        root.rowconfigure(3, weight=0)
-
-        # ===== STYLE (SENDER İLE AYNI) =====
+        # ===== STYLE =====
         style = ttk.Style()
         style.theme_use("default")
 
@@ -59,26 +50,21 @@ class ReceiverApp:
         # ===== AYAR PANELİ =====
         frame = tk.Frame(root, bg="white", highlightbackground="black", highlightthickness=1)
         frame.grid(row=1, column=0, columnspan=2, padx=30, pady=10, sticky="ew")
-        frame.columnconfigure(1, weight=1)
-        frame.columnconfigure(3, weight=1)
 
-        tk.Label(frame, text="Seri Port:", bg="white", fg="black").grid(row=0, column=0, padx=10, pady=10, sticky="w")
-
+        tk.Label(frame, text="Seri Port:", bg="white", fg="black").grid(row=0, column=0, padx=10, pady=10)
         self.port_combo = ttk.Combobox(frame, width=30)
-        self.port_combo.grid(row=0, column=1, padx=10, pady=10, sticky="w")
+        self.port_combo.grid(row=0, column=1, padx=10, pady=10)
         self.refresh_ports()
 
-        tk.Label(frame, text="Baudrate:", bg="white", fg="black").grid(row=1, column=0, padx=10, pady=10, sticky="w")
-
+        tk.Label(frame, text="Baudrate:", bg="white", fg="black").grid(row=1, column=0, padx=10, pady=10)
         self.baud_entry = tk.Entry(frame, width=30, fg="black", bg="white")
         self.baud_entry.insert(0, "9600")
-        self.baud_entry.grid(row=1, column=1, padx=10, pady=10, sticky="w")
+        self.baud_entry.grid(row=1, column=1, padx=10, pady=10)
 
-        tk.Label(frame, text="CPU Eşik (%):", bg="white", fg="black").grid(row=0, column=2, padx=10, pady=10, sticky="w")
-
+        tk.Label(frame, text="CPU Eşik (%):", bg="white", fg="black").grid(row=0, column=2, padx=10, pady=10)
         self.cpu_threshold = tk.Entry(frame, width=15, fg="black", bg="white")
-        self.cpu_threshold.insert(0, "50")
-        self.cpu_threshold.grid(row=0, column=3, padx=10, pady=10, sticky="w")
+        self.cpu_threshold.insert(0, "10")
+        self.cpu_threshold.grid(row=0, column=3, padx=10, pady=10)
 
         # ===== BUTONLAR =====
         btn_frame = tk.Frame(root, bg="#f5f5f5")
@@ -99,10 +85,9 @@ class ReceiverApp:
                                    command=self.exit_app)
         self.exit_btn.grid(row=0, column=2, padx=20)
 
-        # ===== SOL: ALINAN VERİ =====
+        # ===== SOL PANEL =====
         box = tk.Frame(root, bg="white", highlightbackground="black", highlightthickness=1)
         box.grid(row=2, column=0, padx=20, pady=20, sticky="nsew")
-        box.columnconfigure(0, weight=1)
 
         tk.Label(box, text="Alınan Veri", bg="white", fg="black",
                  font=("Arial", 11, "bold")).pack(pady=8)
@@ -122,33 +107,13 @@ class ReceiverApp:
         self.status_label = tk.Label(box, text="Durum: Bekleniyor", bg="white", fg="black")
         self.status_label.pack(anchor="w", padx=15, pady=10)
 
-        # ===== SAĞ: GRAFİK (RESPONSIVE) =====
+        # ===== SAĞ GRAFİK =====
         graph_frame = tk.Frame(root, bg="white", highlightbackground="black", highlightthickness=1)
         graph_frame.grid(row=2, column=1, padx=20, pady=20, sticky="nsew")
 
-        graph_frame.rowconfigure(0, weight=1)
-        graph_frame.columnconfigure(0, weight=1)
-
         self.fig, self.ax = plt.subplots()
-        self.ax.set_title("CPU Kullanımı (%)")
-        self.ax.set_xlabel("Zaman")
-        self.ax.set_ylabel("CPU %")
-
-        self.line, = self.ax.plot([], [])
-
-        # Eşik çizgisi (kırmızı yatay çizgi)
-        self.threshold_line = self.ax.axhline(
-            y=float(self.cpu_threshold.get()),
-            color="red",
-            linestyle="--",
-            linewidth=2,
-            label="CPU Eşik"
-        )
-
-        self.ax.legend()
-
         self.canvas = FigureCanvasTkAgg(self.fig, master=graph_frame)
-        self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
+        self.canvas.get_tk_widget().pack(fill="both", expand=True)
 
         # ===== İSTATİSTİK =====
         self.avg_label = tk.Label(root, text="Ortalama: -", bg="#f5f5f5", fg="black")
@@ -157,7 +122,11 @@ class ReceiverApp:
         self.std_label = tk.Label(root, text="Standart Sapma: -", bg="#f5f5f5", fg="black")
         self.std_label.grid(row=5, column=1, sticky="w", padx=25)
 
-    # ===== TÜM PORTLARI LİSTELE =====
+        self.alarm_label = tk.Label(root, text="ALARM: YOK", bg="#f5f5f5",
+                                    fg="green", font=("Arial", 11, "bold"))
+        self.alarm_label.grid(row=6, column=1, sticky="w", padx=25)
+
+    # ===== PORTLARI LİSTELE =====
     def refresh_ports(self):
         ports = serial.tools.list_ports.comports()
         port_list = [p.device for p in ports]
@@ -173,17 +142,18 @@ class ReceiverApp:
     # ===== BAŞLAT =====
     def start(self):
         self.running = True
+        self.data_cpu.clear()
+        self.last_timestamp = None
+
         self.status_label.config(text="Durum: Çalışıyor")
 
         now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.csv_file = f"veri_kaydi_{now}.csv"
+        self.alarm_file = f"alarm_log_{now}.csv"
 
         with open(self.csv_file, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["Tarih", "Saat", "CPU", "RAM", "ALARM"])
-
-        # ✅ ALARM LOG DOSYASI OLUŞTUR
-        self.alarm_file = f"alarm_log_{now}.csv"
 
         with open(self.alarm_file, "w", newline="") as f:
             writer = csv.writer(f)
@@ -222,12 +192,12 @@ class ReceiverApp:
                 ram = float(ram)
 
                 current_timestamp = f"{tarih} {saat}"
-
-                # ✅ AYNI SANİYE İÇİN TEKRAR YAZMA
                 if self.last_timestamp == current_timestamp:
                     continue
-
                 self.last_timestamp = current_timestamp
+
+                threshold = float(self.cpu_threshold.get())
+                alarm = 1 if cpu >= threshold else 0
 
                 self.lbl_date.config(text=f"Tarih: {tarih}")
                 self.lbl_time.config(text=f"Saat: {saat}")
@@ -236,33 +206,25 @@ class ReceiverApp:
 
                 with open(self.csv_file, "a", newline="") as f:
                     writer = csv.writer(f)
-                    writer.writerow([tarih, saat, cpu, ram])
+                    writer.writerow([tarih, saat, cpu, ram, alarm])
+
+                if alarm == 1:
+                    with open(self.alarm_file, "a", newline="") as af:
+                        aw = csv.writer(af)
+                        aw.writerow([tarih, saat, cpu, threshold])
 
                 self.data_cpu.append(cpu)
 
                 x_vals = list(range(len(self.data_cpu)))
                 y_vals = self.data_cpu
 
-                threshold = float(self.cpu_threshold.get())
-
-                # Çizgiyi temizle
                 self.ax.clear()
-
-                # Eşik altı ve üstü ayır
-                below_x = [i for i, v in zip(x_vals, y_vals) if v < threshold]
-                below_y = [v for v in y_vals if v < threshold]
+                self.ax.plot(x_vals, y_vals, color="blue", label="Normal")
 
                 above_x = [i for i, v in zip(x_vals, y_vals) if v >= threshold]
                 above_y = [v for v in y_vals if v >= threshold]
-
-                # Eşik altı → mavi çizgi
-                # ✅ HER ZAMAN TÜM VERİYİ MAVİ ÇİZ
-                self.ax.plot(x_vals, y_vals, color="blue", label="Normal")
-
-                # Eşik üstü → kırmızı nokta
                 self.ax.scatter(above_x, above_y, color="red", label="Kritik")
 
-                # Eşik yatay çizgisi
                 self.ax.axhline(y=threshold, color="red", linestyle="--", linewidth=2, label="CPU Eşik")
 
                 self.ax.set_title("CPU Kullanımı (%)")
@@ -270,20 +232,23 @@ class ReceiverApp:
                 self.ax.set_ylabel("CPU %")
                 self.ax.legend()
 
-                # ----- SABİT EŞİK ODAKLI Y-AXIS -----
                 y_min = max(0, threshold - 10)
                 y_max = threshold + 10
-
                 self.ax.set_ylim(y_min, y_max)
+
                 self.canvas.draw()
 
                 over = [x for x in self.data_cpu if x >= threshold]
-
                 if over:
                     avg = np.mean(over)
                     std = np.std(over)
                     self.avg_label.config(text=f"Ortalama: {avg:.2f}")
                     self.std_label.config(text=f"Standart Sapma: {std:.2f}")
+
+                if alarm == 1:
+                    self.alarm_label.config(text="ALARM: CPU EŞİĞİ AŞILDI!", fg="red")
+                else:
+                    self.alarm_label.config(text="ALARM: YOK", fg="green")
 
             except:
                 pass
