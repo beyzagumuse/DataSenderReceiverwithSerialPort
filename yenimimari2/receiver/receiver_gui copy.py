@@ -150,6 +150,9 @@ class ReceiverApp:
         self.lbl_ram = tk.Label(box, text="RAM:", bg="white", fg="black")
         self.lbl_ram.pack(anchor="w", padx=15)
 
+        self.lbl_temp = tk.Label(box, text="Sıcaklık:", bg="white", fg="black")
+        self.lbl_temp.pack(anchor="w", padx=15)
+
         self.status_label = tk.Label(box, text="Durum: Bekleniyor", bg="white", fg="black")
         self.status_label.pack(anchor="w", padx=15, pady=10)
 
@@ -214,7 +217,7 @@ class ReceiverApp:
         # === ANA VERİ CSV ===
         with open(self.csv_file, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["Tarih", "Saat", "CPU", "RAM", "CPU_Alarm", "RAM_Alarm"])
+            writer.writerow(["Tarih", "Saat", "CPU", "RAM", "Sıcaklık", "CPU_Alarm", "RAM_Alarm"])
 
         # === CPU ALARM LOG ===
         with open(self.cpu_alarm_file, "w", newline="") as f:
@@ -256,9 +259,10 @@ class ReceiverApp:
                 if not line:
                     continue
 
-                tarih, saat, cpu, ram = line.split(",")
+                tarih, saat, cpu, ram, temp = line.split(",")
                 cpu = float(cpu)
                 ram = float(ram)
+                temp = float(temp)
 
                 current_timestamp = f"{tarih} {saat}"
                 if self.last_timestamp == current_timestamp:
@@ -275,10 +279,11 @@ class ReceiverApp:
                 self.lbl_time.config(text=f"Saat: {saat}")
                 self.lbl_cpu.config(text=f"CPU: {cpu}")
                 self.lbl_ram.config(text=f"RAM: {ram}")
+                self.lbl_temp.config(text=f"Sıcaklık: {temp} °C")
 
                 with open(self.csv_file, "a", newline="") as f:
                     writer = csv.writer(f)
-                    writer.writerow([tarih, saat, cpu, ram, cpu_alarm, ram_alarm])
+                    writer.writerow([tarih, saat, cpu, ram, temp, cpu_alarm, ram_alarm])
 
                 # === CPU & RAM verilerini listeye ekle ===
                 self.data_cpu.append(cpu)
@@ -313,17 +318,22 @@ class ReceiverApp:
             self.ax.set_title("CPU Kullanımı (%)")
             self.ax.set_ylabel("CPU %")
 
-            above_x = [i for i, v in enumerate(y_vals) if v >= threshold]
-            above_y = [v for v in y_vals if v >= threshold]
+            # Son gelen değeri al
+            current_value = y_vals[-1]
+
+            # Sadece son değere göre alarm ver
+            if current_value > threshold:
+                self.alarm_label.config(text="ALARM: CPU EŞİĞİ AŞILDI!", fg="red")
+            else:
+                self.alarm_label.config(text="Durum: Normal", fg="green")
+
+            # Kritik noktaları çiz (grafik için)
+            above_x = [i for i, v in enumerate(y_vals) if v > threshold]
+            above_y = [v for v in y_vals if v > threshold]
 
             self.ax.plot(y_vals, label="Normal", color="blue")
             self.ax.scatter(above_x, above_y, color="red", label="Kritik")
             self.ax.axhline(y=threshold, color="red", linestyle="--", label="CPU Eşik")
-
-            if above_y:
-                self.alarm_label.config(text="ALARM: CPU EŞİĞİ AŞILDI!", fg="red")
-            else:
-                self.alarm_label.config(text="ALARM: YOK", fg="green")
 
         else:  # ===== RAM =====
             y_vals = self.data_ram
@@ -332,21 +342,39 @@ class ReceiverApp:
             self.ax.set_title("RAM Kullanımı (%)")
             self.ax.set_ylabel("RAM %")
 
-            above_x = [i for i, v in enumerate(y_vals) if v >= threshold]
-            above_y = [v for v in y_vals if v >= threshold]
+            # Son gelen değeri al
+            current_value = y_vals[-1]
+
+            # Sadece son değere göre alarm ver
+            if current_value > threshold:
+                self.alarm_label.config(text="ALARM: RAM EŞİĞİ AŞILDI!", fg="red")
+            else:
+                self.alarm_label.config(text="Durum: Normal", fg="green")
+
+            # Kritik noktaları çiz (grafik için)
+            above_x = [i for i, v in enumerate(y_vals) if v > threshold]
+            above_y = [v for v in y_vals if v > threshold]
 
             self.ax.plot(y_vals, label="Normal", color="blue")
             self.ax.scatter(above_x, above_y, color="red", label="Kritik")
             self.ax.axhline(y=threshold, color="red", linestyle="--", label="RAM Eşik")
 
-            if above_y:
-                self.alarm_label.config(text="ALARM: RAM EŞİĞİ AŞILDI!", fg="orange")
-            else:
-                self.alarm_label.config(text="ALARM: YOK", fg="green")
-
         self.ax.set_xlabel("Zaman")
         self.ax.legend()
         self.canvas.draw()
+
+        # ===== ORTALAMA & STANDART SAPMA =====
+        if self.current_graph == "CPU" and self.data_cpu:
+            avg = np.mean(self.data_cpu)
+            std = np.std(self.data_cpu)
+            self.avg_label.config(text=f"Ortalama: {avg:.2f}")
+            self.std_label.config(text=f"Standart Sapma: {std:.2f}")
+
+        elif self.current_graph == "RAM" and self.data_ram:
+            avg = np.mean(self.data_ram)
+            std = np.std(self.data_ram)
+            self.avg_label.config(text=f"Ortalama: {avg:.2f}")
+            self.std_label.config(text=f"Standart Sapma: {std:.2f}")
 
 
 if __name__ == "__main__":

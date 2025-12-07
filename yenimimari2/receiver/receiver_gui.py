@@ -318,22 +318,37 @@ class ReceiverApp:
             self.ax.set_title("CPU Kullanımı (%)")
             self.ax.set_ylabel("CPU %")
 
-            # Son gelen değeri al
+            # === KRİTİK NOKTALAR ===
+            above_x = [i for i, v in enumerate(y_vals) if v > threshold]
+            above_y = [v for v in y_vals if v > threshold]
+
+            # === ANA GRAFİK ===
+            self.ax.plot(y_vals, label="Normal", color="blue")
+            self.ax.scatter(above_x, above_y, color="red", label="Kritik")
+            self.ax.axhline(y=threshold, color="red", linestyle="--", label="CPU Eşik")
+
+            # === ORTALAMA & STANDART SAPMA ===
+            if len(y_vals) > 1:
+                mean_val = np.mean(y_vals)
+                std_val = np.std(y_vals)
+
+                # Ortalama (Turuncu)
+                self.ax.axhline(y=mean_val, color="orange", linestyle="-.",
+                                label=f"Ortalama: {mean_val:.2f}")
+
+                # Standart Sapma (Yeşil)
+                self.ax.axhline(y=mean_val + std_val, color="green", linestyle=":",
+                                label=f"+1 Std: {(mean_val + std_val):.2f}")
+                self.ax.axhline(y=mean_val - std_val, color="green", linestyle=":",
+                                label=f"-1 Std: {(mean_val - std_val):.2f}")
+
+            # === SADECE SON DEĞERE GÖRE ALARM ===
             current_value = y_vals[-1]
 
-            # Sadece son değere göre alarm ver
             if current_value > threshold:
                 self.alarm_label.config(text="ALARM: CPU EŞİĞİ AŞILDI!", fg="red")
             else:
                 self.alarm_label.config(text="Durum: Normal", fg="green")
-
-            # Kritik noktaları çiz (grafik için)
-            above_x = [i for i, v in enumerate(y_vals) if v > threshold]
-            above_y = [v for v in y_vals if v > threshold]
-
-            self.ax.plot(y_vals, label="Normal", color="blue")
-            self.ax.scatter(above_x, above_y, color="red", label="Kritik")
-            self.ax.axhline(y=threshold, color="red", linestyle="--", label="CPU Eşik")
 
         else:  # ===== RAM =====
             y_vals = self.data_ram
