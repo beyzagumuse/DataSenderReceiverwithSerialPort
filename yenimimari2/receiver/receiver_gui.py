@@ -150,6 +150,9 @@ class ReceiverApp:
         self.lbl_ram = tk.Label(box, text="RAM:", bg="white", fg="black")
         self.lbl_ram.pack(anchor="w", padx=15)
 
+        self.lbl_temp = tk.Label(box, text="Sıcaklık:", bg="white", fg="black")
+        self.lbl_temp.pack(anchor="w", padx=15)
+
         self.status_label = tk.Label(box, text="Durum: Bekleniyor", bg="white", fg="black")
         self.status_label.pack(anchor="w", padx=15, pady=10)
 
@@ -214,7 +217,7 @@ class ReceiverApp:
         # === ANA VERİ CSV ===
         with open(self.csv_file, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["Tarih", "Saat", "CPU", "RAM", "CPU_Alarm", "RAM_Alarm"])
+            writer.writerow(["Tarih", "Saat", "CPU", "RAM", "Sıcaklık", "CPU_Alarm", "RAM_Alarm"])
 
         # === CPU ALARM LOG ===
         with open(self.cpu_alarm_file, "w", newline="") as f:
@@ -256,9 +259,10 @@ class ReceiverApp:
                 if not line:
                     continue
 
-                tarih, saat, cpu, ram = line.split(",")
+                tarih, saat, cpu, ram, temp = line.split(",")
                 cpu = float(cpu)
                 ram = float(ram)
+                temp = float(temp)
 
                 current_timestamp = f"{tarih} {saat}"
                 if self.last_timestamp == current_timestamp:
@@ -275,10 +279,11 @@ class ReceiverApp:
                 self.lbl_time.config(text=f"Saat: {saat}")
                 self.lbl_cpu.config(text=f"CPU: {cpu}")
                 self.lbl_ram.config(text=f"RAM: {ram}")
+                self.lbl_temp.config(text=f"Sıcaklık: {temp} °C")
 
                 with open(self.csv_file, "a", newline="") as f:
                     writer = csv.writer(f)
-                    writer.writerow([tarih, saat, cpu, ram, cpu_alarm, ram_alarm])
+                    writer.writerow([tarih, saat, cpu, ram, temp, cpu_alarm, ram_alarm])
 
                 # === CPU & RAM verilerini listeye ekle ===
                 self.data_cpu.append(cpu)
