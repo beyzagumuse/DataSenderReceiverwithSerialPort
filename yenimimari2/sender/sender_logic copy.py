@@ -2,6 +2,7 @@ import serial
 import psutil
 import datetime
 import time
+import subprocess
 
 
 class SerialSenderLogic:
@@ -30,20 +31,33 @@ class SerialSenderLogic:
         self.paused = not self.paused
         return self.paused
 
+    # SICAKLIK 
+    def get_temperature(self):
+        try:
+            path = "/opt/homebrew/bin/osx-cpu-temp"
+            output = subprocess.check_output([path]).decode("utf-8")
+            temp = output.replace("°C", "").strip()
+            return float(temp)
+        except Exception as e:
+            print("SICAKLIK OKUNAMADI:", e)
+            return 31111.0
+
     def get_system_data(self):
         now = datetime.datetime.now()
         date_str = now.strftime("%Y-%m-%d")
         time_str = now.strftime("%H:%M:%S")
+
         cpu = psutil.cpu_percent()
         ram = psutil.virtual_memory().percent
+        temp = self.get_temperature()
 
-        data = f"{date_str},{time_str},{cpu},{ram}\n"
-        return date_str, time_str, cpu, ram, data
+        data = f"{date_str},{time_str},{cpu},{ram},{temp}\n"
+        return date_str, time_str, cpu, ram, temp, data
 
     def send_loop(self, callback):
         while self.running:
             if not self.paused:
-                date_str, time_str, cpu, ram, data = self.get_system_data()
+                date_str, time_str, cpu, ram, temp, data = self.get_system_data()
                 self.ser.write(data.encode())
-                callback(date_str, time_str, cpu, ram)
+                callback(date_str, time_str, cpu, ram, temp)
             time.sleep(1)

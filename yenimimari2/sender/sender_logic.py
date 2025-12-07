@@ -3,6 +3,7 @@ import psutil
 import datetime
 import time
 import subprocess
+import re
 
 
 class SerialSenderLogic:
@@ -34,13 +35,17 @@ class SerialSenderLogic:
     # SICAKLIK 
     def get_temperature(self):
         try:
-            path = "/opt/homebrew/bin/osx-cpu-temp"
-            output = subprocess.check_output([path]).decode("utf-8")
-            temp = output.replace("°C", "").strip()
-            return float(temp)
+            cmd = "ioreg -r -n AppleSMC -a"
+            output = subprocess.check_output(cmd, shell=True).decode()
+
+            matches = re.findall(r"<key>temperature</key>.*?<real>(.*?)</real>", output)
+            if matches:
+                return float(matches[0])
+            else:
+                return 0.0
         except Exception as e:
             print("SICAKLIK OKUNAMADI:", e)
-            return 31111.0
+            return 555555.0
 
     def get_system_data(self):
         now = datetime.datetime.now()
