@@ -13,6 +13,7 @@ import numpy as np
 class ReceiverApp:
     def __init__(self, root):
         self.root = root
+        self.cpu_threshold_ever_exceeded = False
         root.title("Seri Port Veri Alıcı & Analiz")
         # ==== 🔥 RESPONSIVE TAM EKRAN ====
         screen_w = root.winfo_screenwidth()
@@ -213,6 +214,7 @@ class ReceiverApp:
         self.csv_file = f"{veri_path}/veri_kaydi_{now}.csv"
         self.cpu_alarm_file = f"{cpu_alarm_path}/cpu_alarm_log_{now}.csv"
         self.ram_alarm_file = f"{ram_alarm_path}/ram_alarm_log_{now}.csv"
+        self.cpu_detail_file = f"{base_path}/cpu_details/cpu_graphic_details_{now}.csv"
 
         # === ANA VERİ CSV ===
         with open(self.csv_file, "w", newline="") as f:
@@ -223,6 +225,18 @@ class ReceiverApp:
         with open(self.cpu_alarm_file, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["Tarih", "Saat", "CPU", "CPU_Eşik"])
+
+        # === CPU DETAIL DOSYASI ===
+
+        with open(self.cpu_detail_file, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                "Tarih", "Saat",
+                "CPU_Değeri",
+                "CPU_Eşik",
+                "CPU_Ortalama",
+                "CPU_Std"
+            ])
 
         # === RAM ALARM LOG ===
         with open(self.ram_alarm_file, "w", newline="") as f:
@@ -318,23 +332,67 @@ class ReceiverApp:
             self.ax.set_title("CPU Kullanımı (%)")
             self.ax.set_ylabel("CPU %")
 
-            # Son gelen değeri al
-            current_value = y_vals[-1]
-
-            # Sadece son değere göre alarm ver
-            if current_value > threshold:
-                self.alarm_label.config(text="ALARM: CPU EŞİĞİ AŞILDI!", fg="red")
-            else:
-                self.alarm_label.config(text="Durum: Normal", fg="green")
-
-            # Kritik noktaları çiz (grafik için)
+            # === KRİTİK NOKTALAR ===
             above_x = [i for i, v in enumerate(y_vals) if v > threshold]
             above_y = [v for v in y_vals if v > threshold]
 
+            # === ANA GRAFİK ===
             self.ax.plot(y_vals, label="Normal", color="blue")
             self.ax.scatter(above_x, above_y, color="red", label="Kritik")
             self.ax.axhline(y=threshold, color="red", linestyle="--", label="CPU Eşik")
 
+            # === SON DEĞER ===
+            current_value = y_vals[-1]
+
+            # ✅ Eşik bir kere bile geçildiyse kalıcı bayrak
+            if current_value > threshold:
+                self.cpu_threshold_ever_exceeded = True
+
+            # ✅ Ortalama & Std artık KALICI
+            if self.cpu_threshold_ever_exceeded and len(y_vals) > 1:
+                mean_val = np.mean(y_vals)
+                std_val = np.std(y_vals)
+
+                # Ortalama (Turuncu)
+                self.ax.axhline(
+                    y=mean_val,
+                    color="orange",
+                    linestyle="-.",
+                    label=f"Ortalama: {mean_val:.2f}"
+                )
+
+                # Standart Sapma (Yeşil)
+                self.ax.axhline(
+                    y=mean_val + std_val,
+                    color="green",
+                    linestyle=":",
+                    label=f"+1 Std: {(mean_val + std_val):.2f}"
+                )
+                self.ax.axhline(
+                    y=mean_val - std_val,
+                    color="green",
+                    linestyle=":",
+                    label=f"-1 Std: {(mean_val - std_val):.2f}"
+                )
+
+            # ✅ Alarm yazısı SADECE anlık duruma göre
+            if current_value > threshold:
+                self.alarm_label.config(text="ALARM: CPU EŞİĞİ AŞILDI!", fg="red")
+
+                # === CPU DETAIL LOG YAZ ===
+                with open(self.cpu_detail_file, "a", newline="") as f:
+                    writer = csv.writer(f)
+                    writer.writerow([
+                        self.lbl_date.cget("text").replace("Tarih: ", ""),
+                        self.lbl_time.cget("text").replace("Saat: ", ""),
+                        round(current_value, 2),
+                        round(threshold, 2),
+                        round(mean_val, 2),
+                        round(std_val, 2)
+                    ])
+
+            else:
+                self.alarm_label.config(text="Durum: Normal", fg="green")
         else:  # ===== RAM =====
             y_vals = self.data_ram
             threshold = float(self.ram_threshold.get())
