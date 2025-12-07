@@ -198,16 +198,26 @@ class ReceiverApp:
         self.status_label.config(text="Durum: Çalışıyor")
 
         now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.csv_file = f"veri_kaydi_{now}.csv"
-        self.alarm_file = f"alarm_log_{now}.csv"
 
+        # === CSV ===
+        self.csv_file = f"veri_kaydi_{now}.csv"
+        self.cpu_alarm_file = f"cpu_alarm_log_{now}.csv"
+        self.ram_alarm_file = f"ram_alarm_log_{now}.csv"
+
+        # === ANA VERİ CSV ===
         with open(self.csv_file, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["Tarih", "Saat", "CPU", "RAM", "ALARM"])
+            writer.writerow(["Tarih", "Saat", "CPU", "RAM", "CPU_Alarm", "RAM_Alarm"])
 
-        with open(self.alarm_file, "w", newline="") as f:
+        # === CPU ALARM LOG ===
+        with open(self.cpu_alarm_file, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["Tarih", "Saat", "CPU", "Eşik"])
+            writer.writerow(["Tarih", "Saat", "CPU", "CPU_Eşik"])
+
+        # === RAM ALARM LOG ===
+        with open(self.ram_alarm_file, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Tarih", "Saat", "RAM", "RAM_Eşik"])
 
         self.ser = serial.Serial(self.port_combo.get(),
                                  int(self.baud_entry.get()),
@@ -265,17 +275,17 @@ class ReceiverApp:
                 self.data_cpu.append(cpu)
                 self.data_ram.append(ram)
 
-                # === CPU ALARM KAYDI ===
+                # === CPU ALARM LOG ===
                 if cpu_alarm == 1:
-                    with open(self.alarm_file, "a", newline="") as af:
+                    with open(self.cpu_alarm_file, "a", newline="") as af:
                         aw = csv.writer(af)
-                        aw.writerow([tarih, saat, "CPU", cpu, cpu_threshold])
+                        aw.writerow([tarih, saat, cpu, cpu_threshold])
 
-                # === RAM ALARM KAYDI ===
+                # === RAM ALARM LOG ===
                 if ram_alarm == 1:
-                    with open(self.alarm_file, "a", newline="") as af:
+                    with open(self.ram_alarm_file, "a", newline="") as af:
                         aw = csv.writer(af)
-                        aw.writerow([tarih, saat, "RAM", ram, ram_threshold])
+                        aw.writerow([tarih, saat, ram, ram_threshold])
 
                 # === GRAFİĞİ GÜNCELLE (TEK PARAMETRE) ===
                 self.update_graph()

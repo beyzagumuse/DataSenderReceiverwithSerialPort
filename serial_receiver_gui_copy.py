@@ -9,12 +9,20 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 
+
 class ReceiverApp:
     def __init__(self, root):
         self.root = root
         root.title("Seri Port Veri Alıcı & Analiz")
-        root.geometry("1200x800")
+        # ==== 🔥 RESPONSIVE TAM EKRAN ====
+        screen_w = root.winfo_screenwidth()
+        screen_h = root.winfo_screenheight()
+        root.geometry(f"{screen_w}x{screen_h}")
         root.configure(bg="#f5f5f5")
+
+        root.grid_columnconfigure(0, weight=1)
+        root.grid_columnconfigure(1, weight=2)
+        root.grid_rowconfigure(2, weight=1)
 
         self.running = False
         self.data_cpu = []
@@ -75,22 +83,34 @@ class ReceiverApp:
         self.baud_entry.insert(0, "9600")
         self.baud_entry.grid(row=1, column=1, padx=10, pady=10)
 
-        tk.Label(frame, text="CPU Eşik (%):", bg="white", fg="black").grid(row=0, column=2, padx=10, pady=10)
+        # CPU Eşik
+        tk.Label(frame, text="CPU Eşik (%):", bg="white", fg="black")\
+            .grid(row=0, column=2, padx=10, pady=10)
+
         self.cpu_threshold = tk.Entry(frame, width=15, fg="black", bg="white")
         self.cpu_threshold.insert(0, "10")
         self.cpu_threshold.grid(row=0, column=3, padx=10, pady=10)
 
-        # ===== GRAFİK SEÇME BUTONLARI =====
+        # RAM Eşik
+        tk.Label(frame, text="RAM Eşik (%):", bg="white", fg="black")\
+            .grid(row=1, column=2, padx=10, pady=10)
+
+        self.ram_threshold = tk.Entry(frame, width=15, fg="black", bg="white")
+        self.ram_threshold.insert(0, "50")
+        self.ram_threshold.grid(row=1, column=3, padx=10, pady=10)
+        # ===== GRAFİK BUTONLARI =====
         graph_btns = tk.Frame(root, bg="#f5f5f5")
         graph_btns.grid(row=3, column=0, sticky="w", padx=40)
 
-        ttk.Button(graph_btns, text="CPU Grafiği",
-                   style="Blue.TButton",
-                   command=lambda: self.change_graph("CPU")).grid(row=0, column=0, padx=10)
+        cpu_btn = ttk.Button(graph_btns, text="CPU Grafiği",
+                            style="Blue.TButton",
+                            command=lambda: self.change_graph("CPU"))
+        cpu_btn.grid(row=0, column=0, padx=10, pady=5)
 
-        ttk.Button(graph_btns, text="RAM Grafiği",
-                   style="Orange.TButton",
-                   command=lambda: self.change_graph("RAM")).grid(row=0, column=1, padx=10)
+        ram_btn = ttk.Button(graph_btns, text="RAM Grafiği",
+                            style="Orange.TButton",
+                            command=lambda: self.change_graph("RAM"))
+        ram_btn.grid(row=1, column=0, padx=10, pady=5)
 
         # ===== ANA BUTONLAR =====
         btn_frame = tk.Frame(root, bg="#f5f5f5")
@@ -161,7 +181,7 @@ class ReceiverApp:
         ports = serial.tools.list_ports.comports()
         port_list = [p.device for p in ports]
 
-        forced = "/dev/ttys006"
+        forced = "/dev/ttys022"
         if forced not in port_list:
             port_list.append(forced)
 
@@ -226,8 +246,11 @@ class ReceiverApp:
                     continue
                 self.last_timestamp = current_timestamp
 
-                threshold = float(self.cpu_threshold.get())
-                alarm = 1 if cpu >= threshold else 0
+                cpu_threshold = float(self.cpu_threshold.get())
+                ram_threshold = float(self.ram_threshold.get())
+
+                cpu_alarm = 1 if cpu >= cpu_threshold else 0
+                ram_alarm = 1 if ram >= ram_threshold else 0
 
                 self.lbl_date.config(text=f"Tarih: {tarih}")
                 self.lbl_time.config(text=f"Saat: {saat}")
@@ -236,27 +259,38 @@ class ReceiverApp:
 
                 with open(self.csv_file, "a", newline="") as f:
                     writer = csv.writer(f)
-                    writer.writerow([tarih, saat, cpu, ram, alarm])
+                    writer.writerow([tarih, saat, cpu, ram, cpu_alarm, ram_alarm])
 
-                if alarm == 1:
-                    with open(self.alarm_file, "a", newline="") as af:
-                        aw = csv.writer(af)
-                        aw.writerow([tarih, saat, cpu, threshold])
-
+                # === CPU & RAM verilerini listeye ekle ===
                 self.data_cpu.append(cpu)
                 self.data_ram.append(ram)
 
-                self.update_graph(threshold, alarm)
+                # === CPU ALARM KAYDI ===
+                if cpu_alarm == 1:
+                    with open(self.alarm_file, "a", newline="") as af:
+                        aw = csv.writer(af)
+                        aw.writerow([tarih, saat, "CPU", cpu, cpu_threshold])
+
+                # === RAM ALARM KAYDI ===
+                if ram_alarm == 1:
+                    with open(self.alarm_file, "a", newline="") as af:
+                        aw = csv.writer(af)
+                        aw.writerow([tarih, saat, "RAM", ram, ram_threshold])
+
+                # === GRAFİĞİ GÜNCELLE (TEK PARAMETRE) ===
+                self.update_graph()
 
             except:
                 pass
 
     # ===== GRAFİK GÜNCELLE =====
-    def update_graph(self, threshold, alarm):
+    def update_graph(self):
         self.ax.clear()
 
         if self.current_graph == "CPU":
             y_vals = self.data_cpu
+            threshold = float(self.cpu_threshold.get())
+
             self.ax.set_title("CPU Kullanımı (%)")
             self.ax.set_ylabel("CPU %")
 
@@ -267,30 +301,33 @@ class ReceiverApp:
             self.ax.scatter(above_x, above_y, color="red", label="Kritik")
             self.ax.axhline(y=threshold, color="red", linestyle="--", label="CPU Eşik")
 
-            y_min = max(0, threshold - 10)
-            y_max = threshold + 10
-            self.ax.set_ylim(y_min, y_max)
+            if above_y:
+                self.alarm_label.config(text="ALARM: CPU EŞİĞİ AŞILDI!", fg="red")
+            else:
+                self.alarm_label.config(text="ALARM: YOK", fg="green")
 
-        else:
+        else:  # ===== RAM =====
             y_vals = self.data_ram
+            threshold = float(self.ram_threshold.get())
+
             self.ax.set_title("RAM Kullanımı (%)")
             self.ax.set_ylabel("RAM %")
-            self.ax.plot(y_vals, color="green", label="RAM")
+
+            above_x = [i for i, v in enumerate(y_vals) if v >= threshold]
+            above_y = [v for v in y_vals if v >= threshold]
+
+            self.ax.plot(y_vals, label="Normal", color="blue")
+            self.ax.scatter(above_x, above_y, color="red", label="Kritik")
+            self.ax.axhline(y=threshold, color="red", linestyle="--", label="RAM Eşik")
+
+            if above_y:
+                self.alarm_label.config(text="ALARM: RAM EŞİĞİ AŞILDI!", fg="orange")
+            else:
+                self.alarm_label.config(text="ALARM: YOK", fg="green")
 
         self.ax.set_xlabel("Zaman")
         self.ax.legend()
         self.canvas.draw()
-
-        if alarm == 1:
-            self.alarm_label.config(text="ALARM: CPU EŞİĞİ AŞILDI!", fg="red")
-        else:
-            self.alarm_label.config(text="ALARM: YOK", fg="green")
-
-        if self.data_cpu:
-            avg = np.mean(self.data_cpu)
-            std = np.std(self.data_cpu)
-            self.avg_label.config(text=f"Ortalama: {avg:.2f}")
-            self.std_label.config(text=f"Standart Sapma: {std:.2f}")
 
 
 if __name__ == "__main__":
