@@ -199,10 +199,17 @@ class ReceiverApp:
 
         now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-        # === CSV ===
-        self.csv_file = f"veri_kaydi_{now}.csv"
-        self.cpu_alarm_file = f"cpu_alarm_log_{now}.csv"
-        self.ram_alarm_file = f"ram_alarm_log_{now}.csv"
+        # === KLASÖR YOLLARI ===
+        base_path = "/Users/ebg/Desktop/aselsan/yenimimari2/receiver/data"
+
+        veri_path = f"{base_path}/veri_kaydi"
+        cpu_alarm_path = f"{base_path}/cpu_alarm"
+        ram_alarm_path = f"{base_path}/ram_alarm"
+
+        # === DOSYA ADLARI ===
+        self.csv_file = f"{veri_path}/veri_kaydi_{now}.csv"
+        self.cpu_alarm_file = f"{cpu_alarm_path}/cpu_alarm_log_{now}.csv"
+        self.ram_alarm_file = f"{ram_alarm_path}/ram_alarm_log_{now}.csv"
 
         # === ANA VERİ CSV ===
         with open(self.csv_file, "w", newline="") as f:
@@ -219,12 +226,14 @@ class ReceiverApp:
             writer = csv.writer(f)
             writer.writerow(["Tarih", "Saat", "RAM", "RAM_Eşik"])
 
-        self.ser = serial.Serial(self.port_combo.get(),
-                                 int(self.baud_entry.get()),
-                                 timeout=1)
+        # === SERİ PORT BAĞLANTISI ===
+        self.ser = serial.Serial(
+            self.port_combo.get(),
+            int(self.baud_entry.get()),
+            timeout=1
+        )
 
         threading.Thread(target=self.receive_loop, daemon=True).start()
-
     # ===== DURDUR =====
     def stop(self):
         self.running = False
