@@ -58,7 +58,7 @@ class SerialSenderGUI:
                  bg="white", fg="black",
                  font=("Arial", 11)).place(x=30, y=80)
 
-        self.baud_entry = tk.Entry(frame, width=28, bg="white", fg="black")
+        self.baud_entry = tk.Entry(frame, width=28)
         self.baud_entry.insert(0, "9600")
         self.baud_entry.place(x=200, y=80)
 
@@ -83,7 +83,7 @@ class SerialSenderGUI:
 
         # ===== GÖNDERİLEN VERİ =====
         data_frame = tk.Frame(root, bg="white", highlightbackground="black", highlightthickness=1)
-        data_frame.place(x=320, y=430, width=260, height=150)
+        data_frame.place(x=320, y=430, width=260, height=130)
 
         tk.Label(data_frame, text="Gönderilen Veri",
                  font=("Arial", 11, "bold"),
@@ -101,9 +101,6 @@ class SerialSenderGUI:
         self.ram_lbl = tk.Label(data_frame, text="RAM: -", bg="white", fg="black")
         self.ram_lbl.pack(anchor="w", padx=10)
 
-        self.temp_lbl = tk.Label(data_frame, text="Sıcaklık: -", bg="white", fg="black")
-        self.temp_lbl.pack(anchor="w", padx=10)
-
         # ===== DURUM =====
         self.status_lbl = tk.Label(root, text="Durum: Bekleniyor",
                                    font=("Arial", 11, "bold"),
@@ -115,7 +112,6 @@ class SerialSenderGUI:
     def refresh_ports(self):
         ports = serial.tools.list_ports.comports()
         port_list = [port.device for port in ports]
-        forced = "/dev/ttys019"  # ZORUNLU PORT EKLEME
         self.port_combo["values"] = port_list
         if port_list:
             self.port_combo.set(port_list[0])
@@ -131,7 +127,7 @@ class SerialSenderGUI:
 
         try:
             self.logic.connect(port, baud)
-        except Exception as e:
+        except:
             self.status_lbl.config(text="Port Açma Hatası", fg="red")
             return
 
@@ -157,16 +153,9 @@ class SerialSenderGUI:
         self.logic.stop()
         self.status_lbl.config(text="Durum: Durduruldu", fg="red")
 
-    # ✅ HATA DÜZELTİLDİ — Virgül KALDIRILDI
-    def update_labels(self, date_str, time_str, cpu, ram, temp):
+    # ===== UI GÜNCELLE =====
+    def update_labels(self, date_str, time_str, cpu, ram):
         self.date_lbl.config(text=f"Tarih: {date_str}")
         self.time_lbl.config(text=f"Saat: {time_str}")
-        self.cpu_lbl.config(text=f"CPU: {cpu}%")
-        self.ram_lbl.config(text=f"RAM: {ram}%")
-        self.temp_lbl.config(text=f"Sıcaklık: {temp}°C")
-
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = SerialSenderGUI(root)
-    root.mainloop()
+        self.cpu_lbl.config(text=f"CPU: {cpu}")
+        self.ram_lbl.config(text=f"RAM: {ram}")
