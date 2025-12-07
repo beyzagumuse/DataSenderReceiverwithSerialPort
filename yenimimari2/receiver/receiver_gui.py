@@ -97,14 +97,16 @@ class ReceiverApp:
         graph_btns = tk.Frame(root, bg="#f5f5f5")
         graph_btns.grid(row=3, column=0, sticky="w", padx=40)
 
-        ttk.Button(graph_btns, text="CPU Grafiği",
-                   style="Blue.TButton",
-                   command=lambda: self.change_graph("CPU")).grid(row=0, column=0, padx=10)
+        cpu_btn = ttk.Button(graph_btns, text="CPU Grafiği",
+                            style="Blue.TButton",
+                            command=lambda: self.change_graph("CPU"))
+        cpu_btn.grid(row=0, column=0, padx=10, pady=5)
 
-        ttk.Button(graph_btns, text="RAM Grafiği",
-                   style="Orange.TButton",
-                   command=lambda: self.change_graph("RAM")).grid(row=0, column=1, padx=10)
-
+        ram_btn = ttk.Button(graph_btns, text="RAM Grafiği",
+                            style="Orange.TButton",
+                            command=lambda: self.change_graph("RAM"))
+        ram_btn.grid(row=1, column=0, padx=10, pady=5)
+        
         # ===== ANA BUTONLAR =====
         btn_frame = tk.Frame(root, bg="#f5f5f5")
         btn_frame.grid(row=3, column=1, pady=20)
