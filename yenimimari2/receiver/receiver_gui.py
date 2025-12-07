@@ -14,8 +14,15 @@ class ReceiverApp:
     def __init__(self, root):
         self.root = root
         root.title("Seri Port Veri Alıcı & Analiz")
-        root.geometry("950x950")
+        # ==== 🔥 RESPONSIVE TAM EKRAN ====
+        screen_w = root.winfo_screenwidth()
+        screen_h = root.winfo_screenheight()
+        root.geometry(f"{screen_w}x{screen_h}")
         root.configure(bg="#f5f5f5")
+
+        root.grid_columnconfigure(0, weight=1)
+        root.grid_columnconfigure(1, weight=2)
+        root.grid_rowconfigure(2, weight=1)
 
         self.running = False
         self.data_cpu = []
